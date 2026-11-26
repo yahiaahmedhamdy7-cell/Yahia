@@ -1,0 +1,2124 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>مدير الميزانية الذكي | مصاريفك تحت السيطرة</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Cairo & Tajawal -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Cairo', 'Tajawal', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#312e81',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      font-family: 'Cairo', 'Tajawal', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+      padding-bottom: 92px;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .modal-sheet {
+      animation: slideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .toast-anim {
+      animation: fadeIn 0.22s ease-out;
+    }
+  </style>
+</head>
+<body class="antialiased selection:bg-indigo-100 selection:text-indigo-900">
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed top-4 left-4 right-4 z-[60] flex flex-col gap-2 pointer-events-none max-w-md mx-auto"></div>
+
+  <!-- Main Mobile Container -->
+  <div class="max-w-md mx-auto min-h-screen bg-slate-50 shadow-xl shadow-slate-200/60 relative">
+
+    <!-- Sticky Top App Header (Always visible with Privacy Eye button) -->
+    <header class="sticky top-0 z-40 bg-gradient-to-bl from-indigo-700 via-indigo-600 to-violet-700 text-white pt-3.5 pb-4 px-4 rounded-b-3xl shadow-lg">
+      <div class="flex items-center justify-between mb-2.5">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/20 shrink-0">
+            <i class="fa-solid fa-wallet text-base text-amber-300"></i>
+          </div>
+          <div>
+            <h1 class="text-sm font-extrabold tracking-tight leading-tight">مدير الميزانية الذكي</h1>
+            <p class="text-[10px] text-indigo-100 font-medium">تحكم في مرتبك، ديونك، وتحويشك</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <!-- Prominent Privacy Eye Toggle -->
+          <button onclick="togglePrivacyMode()" id="privacy-eye-btn" title="إخفاء/إظهار الفلوس" class="h-9 px-2.5 rounded-xl bg-white/20 hover:bg-white/30 active:scale-95 flex items-center gap-1.5 transition border border-white/20">
+            <i id="privacy-eye-icon" class="fa-solid fa-eye text-sm"></i>
+            <span id="privacy-eye-label" class="text-[11px] font-bold">إخفاء</span>
+          </button>
+          <button onclick="openBackupModal()" title="نسخ احتياطي / استعادة" class="w-9 h-9 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 flex items-center justify-center transition">
+            <i class="fa-solid fa-cloud-arrow-up text-sm"></i>
+          </button>
+          <button onclick="openResetConfirm()" title="تصفير البيانات" class="w-9 h-9 rounded-xl bg-white/15 hover:bg-rose-500/80 active:scale-95 flex items-center justify-center transition">
+            <i class="fa-solid fa-rotate-right text-sm"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Month Selector Strip -->
+      <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5" id="month-selector-strip">
+        <!-- Rendered dynamically -->
+      </div>
+    </header>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 1: الرئيسية (الميزانية والفئات) -->
+    <!-- ===================================================================== -->
+    <main id="tab-home" class="px-4 pt-3 space-y-4">
+
+      <!-- Carried-over Debt Alert Banner -->
+      <div id="debt-alert-banner" class="hidden bg-rose-50 border-2 border-rose-200 rounded-2xl p-3.5 shadow-sm"></div>
+
+      <!-- Surplus Rollover Banner -->
+      <div id="surplus-banner" class="hidden bg-emerald-50 border border-emerald-200 rounded-2xl p-3 flex items-center justify-between shadow-sm"></div>
+
+      <!-- Salary & Overview Card -->
+      <section class="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-3.5">
+        <div class="flex items-center justify-between gap-2">
+          <label for="salary-input" class="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+            <i class="fa-solid fa-money-bill-wave text-emerald-600"></i>
+            المرتب الأساسي للشهر
+          </label>
+          <div class="flex items-center gap-1.5 bg-slate-100 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:bg-white transition">
+            <input type="number" id="salary-input" inputmode="decimal" onchange="updateSalary(this.value)" placeholder="0" class="w-28 bg-transparent text-left font-extrabold text-base text-slate-900 focus:outline-none" />
+            <span class="text-xs font-bold text-slate-500">ج.م</span>
+          </div>
+        </div>
+
+        <!-- 4 KPI Mini Grid -->
+        <div class="grid grid-cols-2 gap-2.5 pt-1">
+          <div class="bg-indigo-50/70 rounded-2xl p-3 border border-indigo-100/80">
+            <div class="text-[11px] font-semibold text-indigo-700 mb-0.5">صافي المتاح للتوزيع</div>
+            <div id="kpi-net-available" class="text-base font-extrabold text-indigo-950">0 ج.م</div>
+            <div id="kpi-net-sub" class="text-[10px] text-indigo-600/80 mt-0.5">المرتب + المرحل - الديون - التحويش</div>
+          </div>
+
+          <div class="bg-amber-50/70 rounded-2xl p-3 border border-amber-100/80">
+            <div class="text-[11px] font-semibold text-amber-800 mb-0.5">غير مخصص (حر)</div>
+            <div id="kpi-unallocated" class="text-base font-extrabold text-amber-950">0 ج.م</div>
+            <div class="text-[10px] text-amber-700/80 mt-0.5">متاح لتقسيمه لفئات أو تحويش</div>
+          </div>
+
+          <div class="bg-slate-100/80 rounded-2xl p-3 border border-slate-200/60">
+            <div class="text-[11px] font-semibold text-slate-600 mb-0.5">المصروف الفعلي</div>
+            <div id="kpi-total-spent" class="text-base font-extrabold text-slate-900">0 ج.م</div>
+            <div id="kpi-allocated-sub" class="text-[10px] text-slate-500 mt-0.5">من أصل 0 مخصص</div>
+          </div>
+
+          <div id="kpi-pocket-card" class="bg-emerald-50/80 rounded-2xl p-3 border border-emerald-200/70">
+            <div class="text-[11px] font-semibold text-emerald-800 mb-0.5">المتبقي الفعلي معاك</div>
+            <div id="kpi-remaining-pocket" class="text-base font-extrabold text-emerald-900">0 ج.م</div>
+            <div id="kpi-pocket-sub" class="text-[10px] text-emerald-700 mt-0.5">فائض يترحل للشهر القادم</div>
+          </div>
+        </div>
+
+        <!-- Quick Action Row -->
+        <div class="grid grid-cols-2 gap-2.5 pt-1">
+          <button onclick="openExpenseModal()" class="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-bold text-xs py-3 px-3 rounded-2xl shadow-md shadow-indigo-200 transition">
+            <i class="fa-solid fa-plus-circle text-sm"></i>
+            تسجيل مصروف يومي
+          </button>
+          <button onclick="openExtraIncomeModal()" class="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-xs py-3 px-3 rounded-2xl shadow-md shadow-emerald-200 transition">
+            <i class="fa-solid fa-sack-dollar text-sm"></i>
+            فلوس إضافية (توجيه ذكي)
+          </button>
+        </div>
+      </section>
+
+      <!-- Prominent Savings & Emergency Vaults Strip on Main View -->
+      <section class="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-7 h-7 rounded-xl bg-slate-900 text-amber-300 flex items-center justify-center text-xs">
+              <i class="fa-solid fa-vault"></i>
+            </span>
+            <div>
+              <h2 class="text-xs font-extrabold text-slate-900">التحويش والطوارئ (خزنة محمية 🔒)</h2>
+              <p class="text-[10px] text-slate-500">إضافة مباشرة في أي وقت — مقفولة ضد السحب العشوائي</p>
+            </div>
+          </div>
+          <button onclick="switchTab('vaults')" class="text-[11px] font-bold text-indigo-600 hover:text-indigo-800">
+            السجل والقفل <i class="fa-solid fa-arrow-left text-[10px]"></i>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <!-- Home Emergency Vault Box -->
+          <div class="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-3 flex flex-col justify-between gap-2.5">
+            <div>
+              <div class="flex items-center justify-between text-[11px] font-extrabold text-amber-900">
+                <span class="flex items-center gap-1">
+                  <i class="fa-solid fa-kit-medical text-amber-600"></i>
+                  الطوارئ
+                </span>
+                <i class="fa-solid fa-lock text-[10px] text-amber-700/80" title="محمي بقفل أمان"></i>
+              </div>
+              <div id="home-vault-emergency" class="text-sm font-extrabold text-amber-950 mt-1">0 ج.م</div>
+            </div>
+            <button onclick="openVaultDepositModal('emergency')" class="w-full bg-amber-600 hover:bg-amber-700 active:scale-[0.98] text-white font-bold text-[11px] py-2 px-2.5 rounded-xl flex items-center justify-center gap-1 shadow-xs transition">
+              <i class="fa-solid fa-plus text-[10px]"></i>
+              إضافة للطوارئ
+            </button>
+          </div>
+
+          <!-- Home Savings Vault Box -->
+          <div class="bg-emerald-50/90 border border-emerald-200/90 rounded-2xl p-3 flex flex-col justify-between gap-2.5">
+            <div>
+              <div class="flex items-center justify-between text-[11px] font-extrabold text-emerald-900">
+                <span class="flex items-center gap-1">
+                  <i class="fa-solid fa-piggy-bank text-emerald-600"></i>
+                  التحويش
+                </span>
+                <i class="fa-solid fa-lock text-[10px] text-emerald-700/80" title="محمي بقفل أمان"></i>
+              </div>
+              <div id="home-vault-savings" class="text-sm font-extrabold text-emerald-950 mt-1">0 ج.م</div>
+              <div class="text-[9px] text-emerald-700 mt-0.5">يُخصم من المتاح ويُستخدم للديون أو الطوارئ</div>
+            </div>
+            <button onclick="openVaultDepositModal('savings')" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-[11px] py-2 px-2.5 rounded-xl flex items-center justify-center gap-1 shadow-xs transition">
+              <i class="fa-solid fa-plus text-[10px]"></i>
+              إضافة للتحويش
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Categories Header & Add Button -->
+      <div class="flex items-center justify-between pt-1">
+        <div>
+          <h2 class="text-sm font-extrabold text-slate-800">فئات المصروفات والتقسيم اليومي</h2>
+          <p class="text-[11px] text-slate-500">أي زيادة في يوم بتتخصم تلقائياً من باقي الأيام</p>
+        </div>
+        <button onclick="openCategoryModal()" class="bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-sm transition">
+          <i class="fa-solid fa-plus"></i>
+          فئة جديدة
+        </button>
+      </div>
+
+      <!-- Categories List -->
+      <div id="categories-list" class="space-y-3 pb-4"></div>
+    </main>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 2: سجل المصاريف (العمليات) -->
+    <!-- ===================================================================== -->
+    <main id="tab-transactions" class="hidden px-4 pt-4 space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-extrabold text-slate-900">سجل مصروفات الشهر</h2>
+          <p class="text-xs text-slate-500" id="tx-month-label">كل العمليات المسجلة خلال الشهر</p>
+        </div>
+        <button onclick="openExpenseModal()" class="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-plus"></i>
+          إضافة
+        </button>
+      </div>
+
+      <div id="tx-filter-pills" class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1"></div>
+      <div id="transactions-list" class="space-y-2.5 pb-4"></div>
+    </main>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 3: الخزنة (التحويش والطوارئ المحمية) -->
+    <!-- ===================================================================== -->
+    <main id="tab-vaults" class="hidden px-4 pt-4 space-y-4">
+      <div class="bg-slate-900 text-white rounded-3xl p-4 shadow-md relative overflow-hidden">
+        <div class="relative z-10">
+          <div class="flex items-center gap-2 text-amber-300 text-xs font-bold mb-1">
+            <i class="fa-solid fa-shield-halved"></i>
+            منطقة محمية ومستقلة عن مصاريف الشهر
+          </div>
+          <h2 class="text-lg font-extrabold">خزنة التحويش والطوارئ</h2>
+          <p class="text-xs text-slate-300 mt-1 leading-relaxed">
+            الفلوس هنا تراكمية عبر كل الشهور ومقفولة بقفل أمان عشان متقربش منها إلا للضرورة القصوى أو سداد المديونيات.
+          </p>
+        </div>
+        <i class="fa-solid fa-vault text-7xl text-white/5 absolute -bottom-3 -left-3"></i>
+      </div>
+
+      <!-- Savings Vault Card -->
+      <div class="bg-white rounded-3xl p-4 border-2 border-emerald-100 shadow-sm space-y-3">
+        <div class="flex items-start justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl">
+              <i class="fa-solid fa-piggy-bank"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-1.5">
+                <h3 class="font-extrabold text-slate-900 text-base">خزنة التحويش</h3>
+                <span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <i class="fa-solid fa-lock text-[9px]"></i> محمي
+                </span>
+              </div>
+              <p class="text-xs text-slate-500">يستقبل فائض الفلوس الإضافية وتحويشك الشهري</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-emerald-50/80 rounded-2xl p-3.5 flex items-center justify-between gap-2 border border-emerald-100">
+          <div>
+            <span class="text-xs font-bold text-emerald-800 block">الرصيد الإجمالي المحوّش</span>
+            <span class="text-[10px] text-emerald-700">يُخصم من المرتب عند الإيداع، ومتاح للديون أو الطوارئ</span>
+          </div>
+          <span id="vault-savings-balance" class="text-xl font-extrabold text-emerald-950 shrink-0">0 ج.م</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <button onclick="openVaultDepositModal('savings')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 transition">
+            <i class="fa-solid fa-plus"></i>
+            إيداع تحويش
+          </button>
+          <button onclick="openVaultWithdrawModal('savings')" class="bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 font-bold text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 transition">
+            <i class="fa-solid fa-lock"></i>
+            سحب (دين / طوارئ)
+          </button>
+        </div>
+      </div>
+
+      <!-- Emergency Vault Card -->
+      <div class="bg-white rounded-3xl p-4 border-2 border-amber-100 shadow-sm space-y-3">
+        <div class="flex items-start justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-xl">
+              <i class="fa-solid fa-kit-medical"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-1.5">
+                <h3 class="font-extrabold text-slate-900 text-base">خزنة الطوارئ</h3>
+                <span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <i class="fa-solid fa-lock text-[9px]"></i> محمي
+                </span>
+              </div>
+              <p class="text-xs text-slate-500">مخصص للأزمات والمواقف المفاجئة فقط</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-amber-50/80 rounded-2xl p-3.5 flex items-center justify-between gap-2 border border-amber-100">
+          <div>
+            <span class="text-xs font-bold text-amber-900 block">رصيد الطوارئ الجاهز</span>
+            <span class="text-[10px] text-amber-700">مقفول بتأكيد من خطوتين لحمايته</span>
+          </div>
+          <span id="vault-emergency-balance" class="text-xl font-extrabold text-amber-950 shrink-0">0 ج.م</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <button onclick="openVaultDepositModal('emergency')" class="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 transition">
+            <i class="fa-solid fa-plus"></i>
+            إيداع طوارئ
+          </button>
+          <button onclick="openVaultWithdrawModal('emergency')" class="bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 font-bold text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 transition">
+            <i class="fa-solid fa-lock"></i>
+            سحب (دين / طوارئ)
+          </button>
+        </div>
+      </div>
+
+      <!-- Vault History -->
+      <div class="space-y-2.5 pb-4">
+        <h3 class="text-sm font-extrabold text-slate-800">سجل حركات الخزنة</h3>
+        <div id="vault-history-list" class="space-y-2"></div>
+      </div>
+    </main>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 4: الديون والمديونيات -->
+    <!-- ===================================================================== -->
+    <main id="tab-debts" class="hidden px-4 pt-4 space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-extrabold text-slate-900">المديونيات والالتزامات</h2>
+          <p class="text-xs text-slate-500">تُخصم من المرتب عند التفعيل أو تلقائياً من أي فلوس إضافية</p>
+        </div>
+        <button onclick="openAddDebtModal()" class="bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-plus"></i>
+          مديونية
+        </button>
+      </div>
+
+      <div id="debts-list" class="space-y-3 pb-4"></div>
+    </main>
+
+    <!-- ===================================================================== -->
+    <!-- FIXED BOTTOM NAVIGATION BAR -->
+    <!-- ===================================================================== -->
+    <nav class="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-lg">
+      <div class="max-w-md mx-auto grid grid-cols-4 py-2 px-2">
+        <button onclick="switchTab('home')" id="nav-home" class="nav-btn relative flex flex-col items-center gap-1 py-1 px-3 rounded-2xl text-indigo-600 bg-indigo-50 font-bold transition">
+          <i class="fa-solid fa-house text-base"></i>
+          <span class="text-[11px]">الرئيسية</span>
+        </button>
+        <button onclick="switchTab('transactions')" id="nav-transactions" class="nav-btn relative flex flex-col items-center gap-1 py-1 px-3 rounded-2xl text-slate-500 hover:text-slate-800 font-semibold transition">
+          <i class="fa-solid fa-receipt text-base"></i>
+          <span class="text-[11px]">السجل</span>
+        </button>
+        <button onclick="switchTab('vaults')" id="nav-vaults" class="nav-btn relative flex flex-col items-center gap-1 py-1 px-3 rounded-2xl text-slate-500 hover:text-slate-800 font-semibold transition">
+          <i class="fa-solid fa-vault text-base"></i>
+          <span class="text-[11px]">الخزنة</span>
+        </button>
+        <button onclick="switchTab('debts')" id="nav-debts" class="nav-btn relative flex flex-col items-center gap-1 py-1 px-3 rounded-2xl text-slate-500 hover:text-slate-800 font-semibold transition">
+          <span id="nav-debt-badge" class="hidden absolute top-1 left-5 w-2.5 h-2.5 bg-rose-600 rounded-full ring-2 ring-white"></span>
+          <i class="fa-solid fa-hand-holding-dollar text-base"></i>
+          <span class="text-[11px]">الديون</span>
+        </button>
+      </div>
+    </nav>
+
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- MODALS BACKDROP & ALL 10 MODALS -->
+  <!-- ======================================================================= -->
+  <div id="modal-backdrop" onclick="closeAllModals(event)" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+
+    <!-- 1. Add / Edit Category Modal -->
+    <div id="modal-category" onclick="event.stopPropagation()" class="hidden modal-sheet w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 id="cat-modal-title" class="text-base font-extrabold text-slate-900">إضافة فئة مصروفات جديدة</h3>
+        <button onclick="closeAllModals()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <input type="hidden" id="cat-edit-id" />
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">اسم الفئة</label>
+          <input type="text" id="cat-name" placeholder="مثال: خروجات، مواصلات، أكل..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">الأيقونة</label>
+          <div id="cat-icon-picker" class="grid grid-cols-6 gap-2"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">عدد الأيام</label>
+            <input type="number" id="cat-days" inputmode="numeric" min="1" max="31" oninput="recalcCategoryPreview('days')" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-extrabold focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">المتوقع في اليوم (ج.م)</label>
+            <input type="number" id="cat-daily" inputmode="decimal" oninput="recalcCategoryPreview('daily')" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-extrabold focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-indigo-700 mb-1">إجمالي ميزانية الفئة (يُخصم من المرتب تلقائياً)</label>
+          <input type="number" id="cat-total" inputmode="decimal" oninput="recalcCategoryPreview('total')" class="w-full bg-indigo-50 border border-indigo-200 rounded-xl px-3.5 py-2.5 text-base font-extrabold text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+      </div>
+      <button onclick="saveCategory()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm py-3 rounded-2xl shadow-md">
+        حفظ الفئة
+      </button>
+    </div>
+
+    <!-- 2. Category Details (Day-by-Day) Modal -->
+    <div id="modal-cat-details" onclick="event.stopPropagation()" class="hidden modal-sheet w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div id="cat-details-content"></div>
+    </div>
+
+    <!-- 3. Log Daily Expense Modal -->
+    <div id="modal-expense" onclick="event.stopPropagation()" class="hidden modal-sheet w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="text-base font-extrabold text-slate-900">تسجيل مصروف يومي</h3>
+        <button onclick="closeAllModals()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">الفئة</label>
+          <select id="exp-category" onchange="updateExpenseDayOptions()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-bold focus:outline-none"></select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">اليوم</label>
+            <select id="exp-day" onchange="updateExpenseLiveHint()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold focus:outline-none"></select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">المبلغ المصروف (ج.م)</label>
+            <input type="number" id="exp-amount" inputmode="decimal" oninput="updateExpenseLiveHint()" placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-base font-extrabold text-rose-600 focus:outline-none" />
+          </div>
+        </div>
+        <div id="exp-live-hint" class="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs text-slate-700 leading-relaxed"></div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">ملاحظة (اختياري)</label>
+          <input type="text" id="exp-note" placeholder="مثال: قهوة، أوبر، غداء..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none" />
+        </div>
+      </div>
+      <button onclick="saveExpense()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm py-3 rounded-2xl shadow-md">
+        تسجيل المصروف وإعادة الحساب
+      </button>
+    </div>
+
+    <!-- 4. Extra Income Smart Auto-Routing Modal -->
+    <div id="modal-extra-income" onclick="event.stopPropagation()" class="hidden modal-sheet w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="text-base font-extrabold text-emerald-800">فلوس إضافية (توجيه ذكي)</h3>
+        <button onclick="closeAllModals()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">المبلغ الإضافي (ج.م)</label>
+          <input type="number" id="extra-amount" inputmode="decimal" oninput="previewExtraRouting()" placeholder="0" class="w-full bg-emerald-50 border border-emerald-200 rounded-xl px-3.5 py-2.5 text-lg font-extrabold text-emerald-900 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">المصدر (اختياري)</label>
+          <input type="text" id="extra-source" placeholder="مثال: شغل جانبي، مكافأة، هدية..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none" />
+        </div>
+        <div id="extra-routing-preview" class="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs text-slate-700 leading-relaxed"></div>
+      </div>
+      <button onclick="processExtraIncome()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm py-3 rounded-2xl shadow-md">
+        توجيه المبلغ تلقائياً الآن
+      </button>
+    </div>
+
+    <!-- 5. Vault Deposit Modal (Savings / Emergency) -->
+    <div id="modal-vault-deposit" onclick="event.stopPropagation()" class="hidden modal-sheet w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 id="vault-deposit-title" class="text-base font-extrabold text-slate-900">إيداع في الخزنة</h3>
+        <button onclick="closeAllModals()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <input type="hidden" id="vault-deposit-type" />
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">المبلغ (ج.م)</label>
+          <input type="number" id="vault-deposit-amount" inputmode="decimal" placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-lg font-extrabold text-emerald-800 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">ملاحظة</label>
+          <input type="text" id="vault-deposit-note" placeholder="مثال: تحويش شهري، مبلغ طوارئ..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none" />
+        </div>
+        <label class="flex items-center gap-2.5 bg-indigo-50 p-3 rounded-xl border border-indigo-100 cursor-pointer">
+          <input type="checkbox" id="vault-deduct-salary" checked class="w-4 h-4 accent-indigo-600 rounded" />
+          <span class="text-xs font-bold text-indigo-900">خصم المبلغ من صافي المتاح في مرتب الشهر الحالي</span>
+        </label>
+      </div>
+      <button onclick="confirmVaultDeposit()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm py-3 rounded-2xl shadow-md">
+        إيداع وقفل المبلغ 🔒
+      </button>
+    </div>
+
+    <!-- 6. Vault Protected Withdrawal Modal -->
+    <div id="modal-vault-withdraw" onclick="event.stopPropagation()" class="hidden modal-sheet w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-rose-100 pb-3">
+        <h3 class="text-base font-extrabold text-rose-700 flex items-center gap-1.5">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          سحب محمي من الخزنة 🔒
+        </h3>
+        <button onclick="closeAllModals()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <input type="hidden" id="vault-withdraw-type" />
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">المبلغ المراد سحبه (ج.م)</label>
+          <input type="number" id="vault-withdraw-amount" inputmode="decimal" placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-base font-extrabold text-rose-600 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-rose-700 mb-1">سبب الضرورة القصوى (أو سداد مديونية)</label>
+          <input type="text" id="vault-withdraw-reason" placeholder="اكتب السبب بوضوح..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none" />
+        </div>
+        <label class="flex items-center gap-2.5 bg-amber-50 p-3 rounded-xl border border-amber-200 cursor-pointer">
+          <input type="checkbox" id="vault-withdraw-pay-debt" class="w-4 h-4 accent-rose-600 rounded" />
+          <span class="text-xs font-bold text-amber-950">توجيه المبلغ المسحوب تلقائياً لسداد المديونيات النشطة</span>
+        </label>
+        <div>
+          <label class="block text-xs font-bold text-rose-700 mb-1">لفتح القفل، اكتب الجملة التالية بالضبط:</label>
+          <div class="bg-slate-100 text-slate-800 font-extrabold text-xs px-3 py-2 rounded-lg mb-1.5 select-all text-center">حالة طوارئ حقيقية</div>
+          <input type="text" id="vault-withdraw-phrase" placeholder="اكتب الجملة هنا للتأكيد..." class="w-full bg-rose-50/50 border border-rose-300 rounded-xl px-3.5 py-2.5 text-sm font-bold focus:outline-none" />
+        </div>
+      </div>
+      <button onclick="confirmVaultWithdraw()" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold text-sm py-3 rounded-2xl shadow-md">
+        تأكيد السحب للضرورة القصوى
+      </button>
+    </div>
+
+    <!-- 7. Add Debt Modal -->
+    <div id="modal-add-debt" onclick="event.stopPropagation()" class="hidden modal-sheet w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="text-base font-extrabold text-slate-900">تسجيل مديونية جديدة</h3>
+        <button onclick="closeAllModals()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">عنوان الدين / الجهة</label>
+          <input type="text" id="debt-title" placeholder="مثال: سلفة الشهر اللي فات، قسط..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">المبلغ (ج.م)</label>
+          <input type="number" id="debt-amount" inputmode="decimal" placeholder="1000" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-base font-extrabold text-rose-600 focus:outline-none" />
+        </div>
+        <label class="flex items-center gap-2.5 bg-rose-50 p-3 rounded-xl border border-rose-100 cursor-pointer">
+          <input type="checkbox" id="debt-deduct-now" checked class="w-4 h-4 accent-rose-600 rounded" />
+          <span class="text-xs font-bold text-rose-900">خصمه من مرتب الشهر الحالي فوراً</span>
+        </label>
+      </div>
+      <button onclick="saveNewDebt()" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold text-sm py-3 rounded-2xl shadow-md">
+        حفظ المديونية
+      </button>
+    </div>
+
+    <!-- 8. Add New Month Modal -->
+    <div id="modal-new-month" onclick="event.stopPropagation()" class="hidden modal-sheet w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="text-base font-extrabold text-slate-900">فتح شهر جديد</h3>
+        <button onclick="closeAllModals()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">الشهر</label>
+            <select id="new-month-num" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold">
+              <option value="01">يناير (1)</option>
+              <option value="02">فبراير (2)</option>
+              <option value="03">مارس (3)</option>
+              <option value="04">أبريل (4)</option>
+              <option value="05">مايو (5)</option>
+              <option value="06">يونيو (6)</option>
+              <option value="07">يوليو (7)</option>
+              <option value="08">أغسطس (8)</option>
+              <option value="09">سبتمبر (9)</option>
+              <option value="10">أكتوبر (10)</option>
+              <option value="11">نوفمبر (11)</option>
+              <option value="12" selected>ديسمبر (12)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">السنة</label>
+            <select id="new-month-year" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold">
+              <option value="2026" selected>2026</option>
+              <option value="2027">2027</option>
+              <option value="2028">2028</option>
+            </select>
+          </div>
+        </div>
+        <label class="flex items-center gap-2.5 bg-indigo-50 p-3 rounded-xl border border-indigo-100 cursor-pointer">
+          <input type="checkbox" id="new-month-copy-cats" checked class="w-4 h-4 accent-indigo-600 rounded" />
+          <span class="text-xs font-bold text-indigo-900">نسخ نفس فئات الشهر الحالي (بأيامها وميزانيتها)</span>
+        </label>
+        <p class="text-[11px] text-slate-500">
+          سيقوم النظام تلقائياً بحساب فائض أو عجز الشهر السابق وترحيله للشهر الجديد.
+        </p>
+      </div>
+      <button onclick="createNewMonth()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm py-3 rounded-2xl shadow-md">
+        إنشاء الشهر والترحيل التلقائي
+      </button>
+    </div>
+
+    <!-- 9. Backup / Restore Modal -->
+    <div id="modal-backup" onclick="event.stopPropagation()" class="hidden modal-sheet w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="text-base font-extrabold text-slate-900">حفظ ونقل بياناتك</h3>
+        <button onclick="closeAllModals()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <p class="text-xs text-slate-600 leading-relaxed">
+        بياناتك محفوظة تلقائياً على موبايلك. تقدر تاخد نسخة احتياطية كـ نص أو ملف JSON عشان لو فتحت البرنامج من أي جهاز تاني.
+      </p>
+      <div class="grid grid-cols-2 gap-2.5">
+        <button onclick="copyBackupData()" class="bg-indigo-600 text-white font-bold text-xs py-3 px-3 rounded-xl flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-copy"></i>
+          نسخ البيانات
+        </button>
+        <button onclick="downloadBackupFile()" class="bg-slate-800 text-white font-bold text-xs py-3 px-3 rounded-xl flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-download"></i>
+          تحميل ملف
+        </button>
+      </div>
+      <div class="pt-2 border-t border-slate-100 space-y-2">
+        <label class="block text-xs font-bold text-slate-700">استعادة من نسخة احتياطية (الصق الكود هنا):</label>
+        <textarea id="restore-json-input" rows="3" placeholder='{"months":...}' class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-mono focus:outline-none"></textarea>
+        <button onclick="restoreBackupData()" class="w-full bg-emerald-600 text-white font-bold text-xs py-2.5 rounded-xl">
+          استعادة البيانات الآن
+        </button>
+      </div>
+    </div>
+
+    <!-- 10. Reset Confirmation Modal -->
+    <div id="modal-reset" onclick="event.stopPropagation()" class="hidden modal-sheet w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="text-base font-extrabold text-rose-700">تصفير البيانات والبدء من الصفر</h3>
+        <button onclick="closeAllModals()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <p class="text-xs text-slate-600 leading-relaxed">
+        هل تريد مسح البيانات التجريبية والبدء بشهر جديد فاضي تماماً عشان تدخل مرتبك وفئاتك الحقيقية؟
+      </p>
+      <div class="grid grid-cols-2 gap-2.5">
+        <button onclick="closeAllModals()" class="bg-slate-100 text-slate-700 font-bold text-xs py-3 rounded-xl">إلغاء</button>
+        <button onclick="executeFreshStart()" class="bg-rose-600 text-white font-bold text-xs py-3 rounded-xl">نعم، ابدأ من الصفر</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    /**
+     * ============================================================================
+     * SMART BUDGET & ROLLOVER ENGINE (مدير الميزانية الذكي)
+     * ============================================================================
+     */
+
+    const STORAGE_KEY = 'smart_budget_egp_v1';
+
+    const ARABIC_MONTHS = {
+      '01': 'يناير', '02': 'فبراير', '03': 'مارس', '04': 'أبريل',
+      '05': 'مايو', '06': 'يونيو', '07': 'يوليو', '08': 'أغسطس',
+      '09': 'سبتمبر', '10': 'أكتوبر', '11': 'نوفمبر', '12': 'ديسمبر'
+    };
+
+    const CATEGORY_ICONS = [
+      { id: 'utensils', icon: 'fa-utensils', label: 'أكل' },
+      { id: 'mug-hot', icon: 'fa-mug-hot', label: 'خروجات' },
+      { id: 'car', icon: 'fa-car', label: 'مواصلات' },
+      { id: 'house', icon: 'fa-house', label: 'بيت' },
+      { id: 'wifi', icon: 'fa-wifi', label: 'فواتير' },
+      { id: 'bag-shopping', icon: 'fa-bag-shopping', label: 'شراء' }
+    ];
+
+    let selectedCategoryIcon = 'fa-mug-hot';
+    let selectedTxFilter = 'all';
+
+    function getDefaultSampleState() {
+      return {
+        activeMonthId: '2026-11',
+        privacyHidden: false,
+        vaults: {
+          savings: 2500,
+          emergency: 1500,
+          history: [
+            { id: 'vh1', date: '2026-11-01', vault: 'savings', type: 'deposit', amount: 2500, note: 'رصيد تحويش سابق' },
+            { id: 'vh2', date: '2026-11-01', vault: 'emergency', type: 'deposit', amount: 1500, note: 'رصيد طوارئ مبدئي' }
+          ]
+        },
+        debts: [
+          {
+            id: 'debt-init-1',
+            title: 'مديونية مرحلة من الشهر السابق',
+            amount: 1000,
+            paidAmount: 0,
+            deductFromSalary: false,
+            monthId: '2026-11',
+            isAutoCarryover: true
+          }
+        ],
+        months: {
+          '2026-11': {
+            id: '2026-11',
+            label: 'نوفمبر 2026',
+            salary: 8000,
+            vaultDeductions: 0,
+            categories: [
+              {
+                id: 'cat-outings',
+                name: 'خروجات وكافيهات',
+                icon: 'fa-mug-hot',
+                daysCount: 10,
+                dailyBudget: 300,
+                totalBudget: 3000
+              },
+              {
+                id: 'cat-transport',
+                name: 'مواصلات وبنزين',
+                icon: 'fa-car',
+                daysCount: 22,
+                dailyBudget: 60,
+                totalBudget: 1320
+              },
+              {
+                id: 'cat-food',
+                name: 'أكل وطلبات يومية',
+                icon: 'fa-utensils',
+                daysCount: 30,
+                dailyBudget: 80,
+                totalBudget: 2400
+              }
+            ],
+            expenses: [
+              {
+                id: 'exp-1',
+                categoryId: 'cat-outings',
+                dayNumber: 1,
+                amount: 500,
+                note: 'خروجة ويك إند (زيادة 200 ج.م اتخصمت من باقي الأيام)',
+                timestamp: '2026-11-03'
+              },
+              {
+                id: 'exp-2',
+                categoryId: 'cat-transport',
+                dayNumber: 1,
+                amount: 55,
+                note: 'مواصلات الشغل',
+                timestamp: '2026-11-02'
+              }
+            ]
+          }
+        }
+      };
+    }
+
+    let appState = loadState();
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.months && Object.keys(parsed.months).length > 0) {
+            if (typeof parsed.privacyHidden !== 'boolean') parsed.privacyHidden = false;
+            if (!parsed.vaults) parsed.vaults = { savings: 0, emergency: 0, history: [] };
+            if (!parsed.debts) parsed.debts = [];
+            return parsed;
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load state:', e);
+      }
+      const def = getDefaultSampleState();
+      saveState(def);
+      return def;
+    }
+
+    function saveState(stateToSave = appState) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+      } catch (e) {
+        console.error('Failed to save state:', e);
+      }
+    }
+
+    // SINGLE formatEGP() function — respects privacy mode across the entire app
+    function formatEGP(num) {
+      if (appState && appState.privacyHidden) {
+        return '•••• ج.م';
+      }
+      const val = Math.round((Number(num) || 0) * 100) / 100;
+      return val.toLocaleString('ar-EG', { maximumFractionDigits: 1 }) + ' ج.م';
+    }
+
+    function togglePrivacyMode() {
+      appState.privacyHidden = !appState.privacyHidden;
+      saveState();
+      updatePrivacyButtonUI();
+      renderAll();
+      showToast(
+        appState.privacyHidden ? 'تم إخفاء جميع الأرقام المالية' : 'تم إظهار الأرقام المالية',
+        'info'
+      );
+    }
+
+    function updatePrivacyButtonUI() {
+      const icon = document.getElementById('privacy-eye-icon');
+      const label = document.getElementById('privacy-eye-label');
+      const btn = document.getElementById('privacy-eye-btn');
+      const salaryInput = document.getElementById('salary-input');
+      if (!icon || !btn) return;
+      if (appState.privacyHidden) {
+        icon.className = 'fa-solid fa-eye-slash text-sm text-amber-300';
+        if (label) label.textContent = 'إظهار';
+        btn.classList.add('ring-2', 'ring-amber-300/80', 'bg-slate-900/40');
+        if (salaryInput) salaryInput.type = 'password';
+      } else {
+        icon.className = 'fa-solid fa-eye text-sm';
+        if (label) label.textContent = 'إخفاء';
+        btn.classList.remove('ring-2', 'ring-amber-300/80', 'bg-slate-900/40');
+        if (salaryInput) salaryInput.type = 'number';
+      }
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const colors = {
+        success: 'bg-emerald-900 text-white border-emerald-700',
+        warning: 'bg-amber-900 text-white border-amber-700',
+        error: 'bg-rose-900 text-white border-rose-700',
+        info: 'bg-slate-900 text-white border-slate-700'
+      };
+      const icons = {
+        success: 'fa-circle-check text-emerald-400',
+        warning: 'fa-triangle-exclamation text-amber-400',
+        error: 'fa-circle-xmark text-rose-400',
+        info: 'fa-circle-info text-indigo-400'
+      };
+      toast.className = `toast-anim pointer-events-auto border ${colors[type] || colors.info} px-4 py-3 rounded-2xl shadow-xl text-xs font-bold flex items-center gap-2.5`;
+      toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info} text-base"></i><span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+      }, 3400);
+    }
+
+    /**
+     * ============================================================================
+     * CORE CALCULATION ENGINE
+     * ============================================================================
+     */
+
+    function getSortedMonthIds() {
+      return Object.keys(appState.months).sort();
+    }
+
+    function getPreviousMonthId(monthId) {
+      const sorted = getSortedMonthIds();
+      const idx = sorted.indexOf(monthId);
+      return idx > 0 ? sorted[idx - 1] : null;
+    }
+
+    function calculateMonthSummary(monthId) {
+      const month = appState.months[monthId];
+      if (!month) return null;
+
+      const prevId = getPreviousMonthId(monthId);
+      let carriedOverSurplus = 0;
+      if (prevId) {
+        const prevSummary = calculateMonthSummary(prevId);
+        if (prevSummary && prevSummary.closingBalance > 0) {
+          carriedOverSurplus = prevSummary.closingBalance;
+        }
+      }
+
+      const monthDebts = appState.debts.filter(d => d.monthId === monthId);
+      const deductedDebtAmount = monthDebts.reduce((sum, d) => {
+        const remaining = Math.max(0, d.amount - d.paidAmount);
+        return d.deductFromSalary ? sum + remaining : sum;
+      }, 0);
+
+      const vaultDeductions = Number(month.vaultDeductions) || 0;
+      const netAvailable = (Number(month.salary) || 0) + carriedOverSurplus - deductedDebtAmount - vaultDeductions;
+
+      const totalAllocated = month.categories.reduce((sum, c) => sum + (Number(c.totalBudget) || 0), 0);
+      const totalSpent = month.expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+      const unallocated = netAvailable - totalAllocated;
+      const closingBalance = netAvailable - totalSpent;
+
+      return {
+        month,
+        carriedOverSurplus,
+        deductedDebtAmount,
+        vaultDeductions,
+        netAvailable,
+        totalAllocated,
+        totalSpent,
+        unallocated,
+        closingBalance
+      };
+    }
+
+    function calculateCategoryMetrics(cat, expenses) {
+      const catExpenses = expenses.filter(e => e.categoryId === cat.id);
+      const totalSpent = catExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+      const remainingBudget = cat.totalBudget - totalSpent;
+
+      const spentByDay = {};
+      for (let d = 1; d <= cat.daysCount; d++) spentByDay[d] = 0;
+      catExpenses.forEach(e => {
+        const d = Number(e.dayNumber) || 1;
+        spentByDay[d] = (spentByDay[d] || 0) + Number(e.amount);
+      });
+
+      const usedDaysSet = new Set(catExpenses.map(e => Number(e.dayNumber)));
+      const usedDaysCount = usedDaysSet.size;
+      const remainingDaysCount = Math.max(0, cat.daysCount - usedDaysCount);
+
+      let adjustedDailyAllowance = cat.dailyBudget;
+      if (remainingDaysCount > 0) {
+        adjustedDailyAllowance = Math.max(0, remainingBudget / remainingDaysCount);
+      } else {
+        adjustedDailyAllowance = Math.max(0, remainingBudget);
+      }
+
+      let status = 'safe';
+      if (remainingBudget < 0) status = 'exceeded';
+      else if (adjustedDailyAllowance < cat.dailyBudget * 0.98) status = 'warning';
+
+      return {
+        totalSpent,
+        remainingBudget,
+        spentByDay,
+        usedDaysCount,
+        remainingDaysCount,
+        adjustedDailyAllowance,
+        status,
+        percentUsed: cat.totalBudget > 0 ? Math.min(100, Math.round((totalSpent / cat.totalBudget) * 100)) : 0
+      };
+    }
+
+    /**
+     * ============================================================================
+     * RENDERING UI
+     * ============================================================================
+     */
+
+    function renderAll() {
+      updatePrivacyButtonUI();
+      renderMonthStrip();
+      renderHomeDashboard();
+      renderTransactionsTab();
+      renderVaultsTab();
+      renderDebtsTab();
+      updateDebtBadge();
+    }
+
+    function renderMonthStrip() {
+      const strip = document.getElementById('month-selector-strip');
+      const ids = getSortedMonthIds();
+      let html = '';
+
+      ids.forEach(id => {
+        const m = appState.months[id];
+        const isActive = id === appState.activeMonthId;
+        html += `
+          <button onclick="selectMonth('${id}')" class="shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+            isActive
+              ? 'bg-white text-indigo-800 shadow-sm'
+              : 'bg-white/15 text-white hover:bg-white/25'
+          }">
+            <i class="fa-regular fa-calendar text-[11px]"></i>
+            ${m.label}
+          </button>
+        `;
+      });
+
+      html += `
+        <button onclick="openNewMonthModal()" class="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-400 text-slate-900 hover:bg-amber-300 transition flex items-center gap-1 shadow-sm">
+          <i class="fa-solid fa-plus text-[11px]"></i>
+          شهر جديد
+        </button>
+      `;
+
+      strip.innerHTML = html;
+    }
+
+    function renderHomeDashboard() {
+      const summary = calculateMonthSummary(appState.activeMonthId);
+      if (!summary) return;
+
+      const { month, carriedOverSurplus, deductedDebtAmount, netAvailable, totalAllocated, totalSpent, unallocated, closingBalance } = summary;
+
+      const salaryInput = document.getElementById('salary-input');
+      salaryInput.value = month.salary || '';
+
+      const surplusBanner = document.getElementById('surplus-banner');
+      if (carriedOverSurplus > 0) {
+        surplusBanner.classList.remove('hidden');
+        surplusBanner.innerHTML = `
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+              <i class="fa-solid fa-arrow-trend-up"></i>
+            </div>
+            <div>
+              <div class="text-xs font-extrabold text-emerald-900">فائض مرحل من الشهر السابق</div>
+              <div class="text-[11px] text-emerald-700">تمت إضافته تلقائياً لميزانية هذا الشهر</div>
+            </div>
+          </div>
+          <span class="font-extrabold text-sm text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-xl">+${formatEGP(carriedOverSurplus)}</span>
+        `;
+      } else {
+        surplusBanner.classList.add('hidden');
+      }
+
+      const debtBanner = document.getElementById('debt-alert-banner');
+      const monthDebts = appState.debts.filter(d => d.monthId === month.id && (d.amount - d.paidAmount) > 0);
+      if (monthDebts.length > 0) {
+        debtBanner.classList.remove('hidden');
+        debtBanner.innerHTML = monthDebts.map(d => {
+          const rem = d.amount - d.paidAmount;
+          return `
+            <div class="flex items-center justify-between gap-2 ${monthDebts.length > 1 ? 'mb-2 pb-2 border-b border-rose-200/70 last:mb-0 last:pb-0 last:border-0' : ''}">
+              <div class="flex items-start gap-2.5">
+                <input type="checkbox" id="chk-debt-${d.id}" ${d.deductFromSalary ? 'checked' : ''} onchange="toggleDebtDeduction('${d.id}')" class="mt-1 w-4 h-4 accent-rose-600 rounded cursor-pointer" />
+                <label for="chk-debt-${d.id}" class="cursor-pointer">
+                  <div class="text-xs font-extrabold text-rose-900">${d.title}</div>
+                  <div class="text-[11px] text-rose-700">
+                    ${d.deductFromSalary ? '✅ تم خصمه من المرتب تلقائياً' : 'علّم هنا لخصم المديونية من مرتب الشهر'}
+                  </div>
+                </label>
+              </div>
+              <span class="font-extrabold text-xs text-rose-800 bg-rose-100 px-2.5 py-1 rounded-xl shrink-0">${formatEGP(rem)}</span>
+            </div>
+          `;
+        }).join('');
+      } else {
+        debtBanner.classList.add('hidden');
+      }
+
+      document.getElementById('kpi-net-available').textContent = formatEGP(netAvailable);
+      document.getElementById('kpi-net-sub').textContent = deductedDebtAmount > 0
+        ? `بعد خصم ${formatEGP(deductedDebtAmount)} مديونية`
+        : (carriedOverSurplus > 0 ? `شامل +${formatEGP(carriedOverSurplus)} مرحل` : 'المرتب - التحويش المخصوم');
+
+      const unallocEl = document.getElementById('kpi-unallocated');
+      unallocEl.textContent = formatEGP(unallocated);
+      unallocEl.className = `text-base font-extrabold ${unallocated < 0 ? 'text-rose-600' : 'text-amber-950'}`;
+
+      document.getElementById('kpi-total-spent').textContent = formatEGP(totalSpent);
+      document.getElementById('kpi-allocated-sub').textContent = `من أصل ${formatEGP(totalAllocated)} مخصص للفئات`;
+
+      const pocketCard = document.getElementById('kpi-pocket-card');
+      const pocketEl = document.getElementById('kpi-remaining-pocket');
+      const pocketSub = document.getElementById('kpi-pocket-sub');
+      pocketEl.textContent = formatEGP(closingBalance);
+
+      if (closingBalance < 0) {
+        pocketCard.className = 'bg-rose-50 rounded-2xl p-3 border border-rose-200';
+        pocketEl.className = 'text-base font-extrabold text-rose-700';
+        pocketSub.className = 'text-[10px] text-rose-600 font-bold mt-0.5';
+        pocketSub.textContent = 'تجاوزت الميزانية! سيُرحّل كمديونية';
+      } else {
+        pocketCard.className = 'bg-emerald-50/80 rounded-2xl p-3 border border-emerald-200/70';
+        pocketEl.className = 'text-base font-extrabold text-emerald-900';
+        pocketSub.className = 'text-[10px] text-emerald-700 mt-0.5';
+        pocketSub.textContent = 'فائض يترحل للشهر القادم';
+      }
+
+      const catListEl = document.getElementById('categories-list');
+      if (month.categories.length === 0) {
+        catListEl.innerHTML = `
+          <div class="bg-white rounded-3xl p-8 text-center border border-dashed border-slate-300 space-y-2">
+            <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 mx-auto flex items-center justify-center text-xl">
+              <i class="fa-solid fa-layer-group"></i>
+            </div>
+            <h3 class="text-sm font-extrabold text-slate-800">لسه مقسمتش مرتبك لفئات</h3>
+            <p class="text-xs text-slate-500">اضغط على "فئة جديدة" وحدد عدد الأيام والميزانية اليومية لكل بند.</p>
+          </div>
+        `;
+        return;
+      }
+
+      catListEl.innerHTML = month.categories.map(cat => {
+        const metrics = calculateCategoryMetrics(cat, month.expenses);
+        const iconObj = CATEGORY_ICONS.find(i => i.icon === cat.icon) || CATEGORY_ICONS[0];
+
+        let badgeHtml = '';
+        let barColor = 'bg-emerald-500';
+        if (metrics.status === 'safe') {
+          badgeHtml = `<span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">في الأمان</span>`;
+          barColor = 'bg-emerald-500';
+        } else if (metrics.status === 'warning') {
+          badgeHtml = `<span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">المعدل اليومي قلّ</span>`;
+          barColor = 'bg-amber-500';
+        } else {
+          badgeHtml = `<span class="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded-full">تجاوزت ميزانية الفئة!</span>`;
+          barColor = 'bg-rose-500';
+        }
+
+        return `
+          <div class="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-3 transition hover:border-indigo-100">
+            <div class="flex items-start justify-between gap-2">
+              <div onclick="openCategoryDetails('${cat.id}')" class="flex items-center gap-3 cursor-pointer flex-1">
+                <div class="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg shrink-0">
+                  <i class="fa-solid ${iconObj.icon}"></i>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <h3 class="font-extrabold text-slate-900 text-sm">${cat.name}</h3>
+                    ${badgeHtml}
+                  </div>
+                  <div class="text-[11px] text-slate-500 mt-0.5">
+                    ${cat.daysCount} أيام × ${formatEGP(cat.dailyBudget)} = <strong class="text-slate-700">${formatEGP(cat.totalBudget)}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-1">
+                <button onclick="openExpenseModal('${cat.id}')" title="تسجيل مصروف سريع" class="w-8 h-8 rounded-xl bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white flex items-center justify-center transition">
+                  <i class="fa-solid fa-plus text-xs"></i>
+                </button>
+                <button onclick="openCategoryDetails('${cat.id}')" title="تفاصيل الأيام" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition">
+                  <i class="fa-solid fa-calendar-days text-xs"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="space-y-1">
+              <div class="flex justify-between text-[11px] font-bold">
+                <span class="text-slate-600">صرفت: ${formatEGP(metrics.totalSpent)}</span>
+                <span class="${metrics.remainingBudget < 0 ? 'text-rose-600' : 'text-emerald-700'}">
+                  المتبقي: ${formatEGP(metrics.remainingBudget)}
+                </span>
+              </div>
+              <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div class="${barColor} h-full rounded-full transition-all duration-300" style="width: ${metrics.percentUsed}%"></div>
+              </div>
+            </div>
+
+            <div class="bg-slate-50 rounded-2xl px-3 py-2 flex items-center justify-between text-xs border border-slate-100">
+              <span class="text-slate-600 font-semibold">
+                متبقي <strong class="text-slate-900">${metrics.remainingDaysCount}</strong> يوم من أصل ${cat.daysCount}:
+              </span>
+              <span class="font-extrabold ${metrics.status === 'warning' ? 'text-amber-700' : (metrics.status === 'exceeded' ? 'text-rose-600' : 'text-indigo-700')}">
+                المتاح لليوم: ${formatEGP(metrics.adjustedDailyAllowance)}
+              </span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderTransactionsTab() {
+      const month = appState.months[appState.activeMonthId];
+      if (!month) return;
+
+      document.getElementById('tx-month-label').textContent = `عمليات شهر ${month.label}`;
+
+      const pillsEl = document.getElementById('tx-filter-pills');
+      let pillsHtml = `
+        <button onclick="setTxFilter('all')" class="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition ${selectedTxFilter === 'all' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 border border-slate-200'}">
+          الكل (${month.expenses.length})
+        </button>
+      `;
+      month.categories.forEach(c => {
+        pillsHtml += `
+          <button onclick="setTxFilter('${c.id}')" class="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition ${selectedTxFilter === c.id ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200'}">
+            ${c.name}
+          </button>
+        `;
+      });
+      pillsEl.innerHTML = pillsHtml;
+
+      const listEl = document.getElementById('transactions-list');
+      const filtered = selectedTxFilter === 'all'
+        ? month.expenses
+        : month.expenses.filter(e => e.categoryId === selectedTxFilter);
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = `
+          <div class="bg-white rounded-3xl p-8 text-center border border-slate-100 text-slate-400 text-xs font-bold">
+            لا توجد مصروفات مسجلة في هذا القسم حتى الآن.
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = [...filtered].reverse().map(exp => {
+        const cat = month.categories.find(c => c.id === exp.categoryId);
+        const catName = cat ? cat.name : 'فئة محذوفة';
+        const icon = cat ? cat.icon : 'fa-receipt';
+
+        return `
+          <div class="bg-white rounded-2xl p-3.5 border border-slate-100 shadow-xs flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+                <i class="fa-solid ${icon}"></i>
+              </div>
+              <div>
+                <div class="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                  ${catName}
+                  <span class="bg-indigo-50 text-indigo-700 text-[10px] px-2 py-0.5 rounded-md">يوم ${exp.dayNumber}</span>
+                </div>
+                <div class="text-[11px] text-slate-500 mt-0.5">${exp.note || 'بدون ملاحظة'}</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2.5">
+              <span class="font-extrabold text-sm text-rose-600">-${formatEGP(exp.amount)}</span>
+              <button onclick="deleteExpense('${exp.id}')" class="text-slate-300 hover:text-rose-500 p-1 transition">
+                <i class="fa-solid fa-trash-can text-xs"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderVaultsTab() {
+      document.getElementById('vault-savings-balance').textContent = formatEGP(appState.vaults.savings);
+      document.getElementById('vault-emergency-balance').textContent = formatEGP(appState.vaults.emergency);
+      document.getElementById('home-vault-savings').textContent = formatEGP(appState.vaults.savings);
+      document.getElementById('home-vault-emergency').textContent = formatEGP(appState.vaults.emergency);
+
+      const historyEl = document.getElementById('vault-history-list');
+      if (!appState.vaults.history || appState.vaults.history.length === 0) {
+        historyEl.innerHTML = `<div class="text-xs text-slate-400 text-center py-4 bg-white rounded-2xl border border-slate-100">لا توجد حركات مسجلة بعد</div>`;
+        return;
+      }
+
+      historyEl.innerHTML = [...appState.vaults.history].reverse().map(item => {
+        const isDeposit = item.type === 'deposit';
+        const vaultLabel = item.vault === 'savings' ? 'التحويش' : 'الطوارئ';
+        return `
+          <div class="bg-white rounded-2xl p-3 border border-slate-100 flex items-center justify-between text-xs">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl ${isDeposit ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'} flex items-center justify-center">
+                <i class="fa-solid ${isDeposit ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
+              </div>
+              <div>
+                <div class="font-extrabold text-slate-800">${isDeposit ? 'إيداع في' : 'سحب طارئ من'} ${vaultLabel}</div>
+                <div class="text-[11px] text-slate-500">${item.note || ''} • ${item.date}</div>
+              </div>
+            </div>
+            <span class="font-extrabold ${isDeposit ? 'text-emerald-700' : 'text-rose-600'}">
+              ${isDeposit ? '+' : '-'}${formatEGP(item.amount)}
+            </span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderDebtsTab() {
+      const listEl = document.getElementById('debts-list');
+      if (!appState.debts || appState.debts.length === 0) {
+        listEl.innerHTML = `
+          <div class="bg-white rounded-3xl p-8 text-center border border-slate-100 space-y-2">
+            <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center text-xl">
+              <i class="fa-solid fa-face-smile-beam"></i>
+            </div>
+            <h3 class="text-sm font-extrabold text-slate-800">مفيش عليك أي ديون حالياً!</h3>
+            <p class="text-xs text-slate-500">ممتاز! استمر في الالتزام بميزانيتك اليومية.</p>
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = appState.debts.map(d => {
+        const rem = Math.max(0, d.amount - d.paidAmount);
+        const isPaid = rem === 0;
+        const mLabel = appState.months[d.monthId]?.label || d.monthId;
+
+        return `
+          <div class="bg-white rounded-3xl p-4 border ${isPaid ? 'border-emerald-200 opacity-75' : 'border-rose-200'} shadow-xs space-y-3">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 class="font-extrabold text-sm text-slate-900">${d.title}</h3>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${isPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                    ${isPaid ? 'مسدد بالكامل' : 'غير مسدد'}
+                  </span>
+                </div>
+                <div class="text-[11px] text-slate-500 mt-0.5">شهر: ${mLabel} • الإجمالي: ${formatEGP(d.amount)}</div>
+              </div>
+              <button onclick="deleteDebt('${d.id}')" class="text-slate-300 hover:text-rose-500 p-1">
+                <i class="fa-solid fa-trash-can text-xs"></i>
+              </button>
+            </div>
+
+            ${!isPaid ? `
+              <div class="bg-rose-50/70 rounded-2xl p-3 flex items-center justify-between">
+                <span class="text-xs font-bold text-rose-900">المتبقي للسداد:</span>
+                <span class="text-base font-extrabold text-rose-700">${formatEGP(rem)}</span>
+              </div>
+              <label class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200 cursor-pointer">
+                <span class="text-xs font-bold text-slate-700">خصم تلقائي من مرتب الشهر (${mLabel})</span>
+                <input type="checkbox" ${d.deductFromSalary ? 'checked' : ''} onchange="toggleDebtDeduction('${d.id}')" class="w-4 h-4 accent-rose-600 rounded" />
+              </label>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateDebtBadge() {
+      const hasUnpaid = appState.debts.some(d => (d.amount - d.paidAmount) > 0);
+      const badge = document.getElementById('nav-debt-badge');
+      if (hasUnpaid) badge.classList.remove('hidden');
+      else badge.classList.add('hidden');
+    }
+
+    /**
+     * ============================================================================
+     * INTERACTIVE ACTIONS & HANDLERS
+     * ============================================================================
+     */
+
+    function switchTab(tabName) {
+      ['home', 'transactions', 'vaults', 'debts'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.add('hidden');
+        const btn = document.getElementById(`nav-${t}`);
+        btn.className = 'nav-btn relative flex flex-col items-center gap-1 py-1 px-3 rounded-2xl text-slate-500 hover:text-slate-800 font-semibold transition';
+      });
+      document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`nav-${tabName}`);
+      activeBtn.className = 'nav-btn relative flex flex-col items-center gap-1 py-1 px-3 rounded-2xl text-indigo-600 bg-indigo-50 font-bold transition';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function selectMonth(monthId) {
+      appState.activeMonthId = monthId;
+      saveState();
+      renderAll();
+    }
+
+    function updateSalary(val) {
+      const month = appState.months[appState.activeMonthId];
+      if (!month) return;
+      month.salary = Math.max(0, Number(val) || 0);
+      saveState();
+      renderAll();
+      showToast('تم تحديث المرتب الأساسي', 'success');
+    }
+
+    function toggleDebtDeduction(debtId) {
+      const debt = appState.debts.find(d => d.id === debtId);
+      if (!debt) return;
+      debt.deductFromSalary = !debt.deductFromSalary;
+      saveState();
+      renderAll();
+      showToast(
+        debt.deductFromSalary ? 'تم خصم المديونية من مرتب الشهر' : 'تم إلغاء الخصم المباشر من المرتب',
+        debt.deductFromSalary ? 'warning' : 'info'
+      );
+    }
+
+    // --- Modal Helpers ---
+    function openModal(modalId) {
+      const backdrop = document.getElementById('modal-backdrop');
+      backdrop.classList.remove('hidden');
+      document.querySelectorAll('#modal-backdrop > div').forEach(el => el.classList.add('hidden'));
+      document.getElementById(modalId).classList.remove('hidden');
+    }
+
+    function closeAllModals(e) {
+      if (e && e.target !== document.getElementById('modal-backdrop')) return;
+      document.getElementById('modal-backdrop').classList.add('hidden');
+    }
+
+    // --- Category Modal ---
+    function openCategoryModal(editCatId = null) {
+      const month = appState.months[appState.activeMonthId];
+      document.getElementById('cat-edit-id').value = editCatId || '';
+
+      if (editCatId) {
+        const cat = month.categories.find(c => c.id === editCatId);
+        document.getElementById('cat-modal-title').textContent = 'تعديل الفئة';
+        document.getElementById('cat-name').value = cat.name;
+        document.getElementById('cat-days').value = cat.daysCount;
+        document.getElementById('cat-daily').value = cat.dailyBudget;
+        document.getElementById('cat-total').value = cat.totalBudget;
+        selectedCategoryIcon = cat.icon;
+      } else {
+        document.getElementById('cat-modal-title').textContent = 'إضافة فئة مصروفات جديدة';
+        document.getElementById('cat-name').value = '';
+        document.getElementById('cat-days').value = 10;
+        document.getElementById('cat-daily').value = 300;
+        document.getElementById('cat-total').value = 3000;
+        selectedCategoryIcon = 'fa-mug-hot';
+      }
+
+      renderIconPicker();
+      openModal('modal-category');
+    }
+
+    function renderIconPicker() {
+      const picker = document.getElementById('cat-icon-picker');
+      picker.innerHTML = CATEGORY_ICONS.map(item => `
+        <button type="button" onclick="selectCatIcon('${item.icon}')" class="p-2.5 rounded-xl border flex flex-col items-center gap-1 transition ${
+          selectedCategoryIcon === item.icon
+            ? 'bg-indigo-600 text-white border-indigo-600'
+            : 'bg-slate-50 text-slate-600 border-slate-200'
+        }">
+          <i class="fa-solid ${item.icon} text-sm"></i>
+          <span class="text-[9px] font-bold">${item.label}</span>
+        </button>
+      `).join('');
+    }
+
+    function selectCatIcon(icon) {
+      selectedCategoryIcon = icon;
+      renderIconPicker();
+    }
+
+    function recalcCategoryPreview(source) {
+      const days = Math.max(1, Number(document.getElementById('cat-days').value) || 1);
+      const dailyEl = document.getElementById('cat-daily');
+      const totalEl = document.getElementById('cat-total');
+
+      if (source === 'days' || source === 'daily') {
+        const daily = Math.max(0, Number(dailyEl.value) || 0);
+        totalEl.value = Math.round(days * daily * 100) / 100;
+      } else if (source === 'total') {
+        const total = Math.max(0, Number(totalEl.value) || 0);
+        dailyEl.value = Math.round((total / days) * 100) / 100;
+      }
+    }
+
+    function saveCategory() {
+      const month = appState.months[appState.activeMonthId];
+      const editId = document.getElementById('cat-edit-id').value;
+      const name = document.getElementById('cat-name').value.trim();
+      const daysCount = Math.max(1, Number(document.getElementById('cat-days').value) || 1);
+      const dailyBudget = Math.max(0, Number(document.getElementById('cat-daily').value) || 0);
+      const totalBudget = Math.max(0, Number(document.getElementById('cat-total').value) || 0);
+
+      if (!name) {
+        showToast('من فضلك اكتب اسم الفئة أولاً', 'warning');
+        return;
+      }
+
+      if (editId) {
+        const cat = month.categories.find(c => c.id === editId);
+        if (cat) {
+          cat.name = name;
+          cat.icon = selectedCategoryIcon;
+          cat.daysCount = daysCount;
+          cat.dailyBudget = dailyBudget;
+          cat.totalBudget = totalBudget;
+        }
+        showToast('تم تعديل الفئة بنجاح', 'success');
+      } else {
+        month.categories.push({
+          id: 'cat-' + Date.now(),
+          name,
+          icon: selectedCategoryIcon,
+          daysCount,
+          dailyBudget,
+          totalBudget
+        });
+        showToast(`تمت إضافة "${name}" وخصم ${formatEGP(totalBudget)} من الميزانية`, 'success');
+      }
+
+      saveState();
+      closeAllModals();
+      renderAll();
+    }
+
+    function deleteCategory(catId) {
+      const month = appState.months[appState.activeMonthId];
+      month.categories = month.categories.filter(c => c.id !== catId);
+      month.expenses = month.expenses.filter(e => e.categoryId !== catId);
+      saveState();
+      closeAllModals();
+      renderAll();
+      showToast('تم حذف الفئة وإعادة رصيدها للمرتب المتاح', 'info');
+    }
+
+    // --- Category Day-by-Day Details Modal ---
+    function openCategoryDetails(catId) {
+      const month = appState.months[appState.activeMonthId];
+      const cat = month.categories.find(c => c.id === catId);
+      if (!cat) return;
+
+      const metrics = calculateCategoryMetrics(cat, month.expenses);
+      let daysGridHtml = '';
+
+      for (let d = 1; d <= cat.daysCount; d++) {
+        const spent = metrics.spentByDay[d] || 0;
+        const isSpent = spent > 0;
+        const isOverPlanned = spent > cat.dailyBudget;
+
+        daysGridHtml += `
+          <div onclick="closeAllModals(); openExpenseModal('${cat.id}', ${d})" class="cursor-pointer p-2.5 rounded-2xl border transition flex flex-col items-center justify-center text-center ${
+            isSpent
+              ? (isOverPlanned ? 'bg-rose-50 border-rose-200' : 'bg-emerald-50 border-emerald-200')
+              : 'bg-slate-50 border-slate-200 hover:border-indigo-300'
+          }">
+            <span class="text-[10px] font-bold text-slate-500">يوم ${d}</span>
+            <span class="text-xs font-extrabold mt-0.5 ${
+              isSpent
+                ? (isOverPlanned ? 'text-rose-700' : 'text-emerald-700')
+                : 'text-indigo-700'
+            }">
+              ${isSpent ? formatEGP(spent) : formatEGP(metrics.adjustedDailyAllowance)}
+            </span>
+            <span class="text-[9px] mt-0.5 ${isSpent ? 'text-slate-500' : 'text-indigo-500 font-semibold'}">
+              ${isSpent ? (isOverPlanned ? 'تجاوز الحد' : 'تم الصرف') : 'متاح'}
+            </span>
+          </div>
+        `;
+      }
+
+      document.getElementById('cat-details-content').innerHTML = `
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div>
+            <h3 class="text-base font-extrabold text-slate-900">${cat.name}</h3>
+            <p class="text-xs text-slate-500">اضغط على أي يوم لتسجيل مصروف فيه</p>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button onclick="closeAllModals(); openCategoryModal('${cat.id}')" class="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <i class="fa-solid fa-pen text-xs"></i>
+            </button>
+            <button onclick="deleteCategory('${cat.id}')" class="w-8 h-8 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center">
+              <i class="fa-solid fa-trash text-xs"></i>
+            </button>
+            <button onclick="closeAllModals()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 my-3 text-center">
+          <div class="bg-slate-50 p-2.5 rounded-2xl">
+            <div class="text-[10px] text-slate-500 font-bold">الميزانية الكلية</div>
+            <div class="text-xs font-extrabold text-slate-900 mt-0.5">${formatEGP(cat.totalBudget)}</div>
+          </div>
+          <div class="bg-slate-50 p-2.5 rounded-2xl">
+            <div class="text-[10px] text-slate-500 font-bold">المتبقي</div>
+            <div class="text-xs font-extrabold ${metrics.remainingBudget < 0 ? 'text-rose-600' : 'text-emerald-700'} mt-0.5">${formatEGP(metrics.remainingBudget)}</div>
+          </div>
+          <div class="bg-indigo-50 p-2.5 rounded-2xl">
+            <div class="text-[10px] text-indigo-700 font-bold">المعدل الجديد/يوم</div>
+            <div class="text-xs font-extrabold text-indigo-900 mt-0.5">${formatEGP(metrics.adjustedDailyAllowance)}</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto pr-0.5">
+          ${daysGridHtml}
+        </div>
+      `;
+
+      openModal('modal-cat-details');
+    }
+
+    // --- Expense Logging ---
+    function openExpenseModal(preselectedCatId = null, preselectedDay = null) {
+      const month = appState.months[appState.activeMonthId];
+      if (!month.categories || month.categories.length === 0) {
+        showToast('أضف فئة مصروفات أولاً قبل تسجيل المصاريف', 'warning');
+        openCategoryModal();
+        return;
+      }
+
+      const catSelect = document.getElementById('exp-category');
+      catSelect.innerHTML = month.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      if (preselectedCatId) catSelect.value = preselectedCatId;
+
+      document.getElementById('exp-amount').value = '';
+      document.getElementById('exp-note').value = '';
+
+      updateExpenseDayOptions(preselectedDay);
+      openModal('modal-expense');
+    }
+
+    function updateExpenseDayOptions(preselectedDay = null) {
+      const month = appState.months[appState.activeMonthId];
+      const catId = document.getElementById('exp-category').value;
+      const cat = month.categories.find(c => c.id === catId);
+      const daySelect = document.getElementById('exp-day');
+      if (!cat) return;
+
+      const metrics = calculateCategoryMetrics(cat, month.expenses);
+      let opts = '';
+      for (let d = 1; d <= cat.daysCount; d++) {
+        const alreadySpent = metrics.spentByDay[d] || 0;
+        opts += `<option value="${d}">اليوم ${d} ${alreadySpent > 0 ? `(صُرف ${alreadySpent} ج.م)` : ''}</option>`;
+      }
+      daySelect.innerHTML = opts;
+
+      if (preselectedDay) {
+        daySelect.value = preselectedDay;
+      } else {
+        for (let d = 1; d <= cat.daysCount; d++) {
+          if ((metrics.spentByDay[d] || 0) === 0) {
+            daySelect.value = d;
+            break;
+          }
+        }
+      }
+      updateExpenseLiveHint();
+    }
+
+    function updateExpenseLiveHint() {
+      const month = appState.months[appState.activeMonthId];
+      const catId = document.getElementById('exp-category').value;
+      const dayNum = Number(document.getElementById('exp-day').value);
+      const amount = Math.max(0, Number(document.getElementById('exp-amount').value) || 0);
+      const cat = month.categories.find(c => c.id === catId);
+      const hintEl = document.getElementById('exp-live-hint');
+      if (!cat) return;
+
+      const simExpenses = [...month.expenses, { categoryId: catId, dayNumber: dayNum, amount }];
+      const simMetrics = calculateCategoryMetrics(cat, simExpenses);
+
+      if (amount === 0) {
+        hintEl.innerHTML = `المتاح حالياً لليوم في <strong>${cat.name}</strong>: <strong class="text-indigo-700">${formatEGP(simMetrics.adjustedDailyAllowance)}</strong>`;
+        return;
+      }
+
+      if (simMetrics.remainingBudget < 0) {
+        hintEl.innerHTML = `<span class="text-rose-700 font-bold">⚠️ تنبيه: المبلغ ده هيخليك تتجاوز ميزانية "${cat.name}" بـ ${formatEGP(Math.abs(simMetrics.remainingBudget))}!</span>`;
+      } else {
+        hintEl.innerHTML = `بعد تسجيل المبلغ ده، هيتبقى <strong class="text-emerald-700">${formatEGP(simMetrics.remainingBudget)}</strong> على <strong>${simMetrics.remainingDaysCount}</strong> يوم (بمعدل <strong class="text-indigo-700">${formatEGP(simMetrics.adjustedDailyAllowance)} / يوم</strong>).`;
+      }
+    }
+
+    function saveExpense() {
+      const month = appState.months[appState.activeMonthId];
+      const categoryId = document.getElementById('exp-category').value;
+      const dayNumber = Number(document.getElementById('exp-day').value);
+      const amount = Math.max(0, Number(document.getElementById('exp-amount').value) || 0);
+      const note = document.getElementById('exp-note').value.trim();
+
+      if (amount <= 0) {
+        showToast('اكتب مبلغ صحيح أكبر من صفر', 'warning');
+        return;
+      }
+
+      month.expenses.push({
+        id: 'exp-' + Date.now(),
+        categoryId,
+        dayNumber,
+        amount,
+        note,
+        timestamp: new Date().toISOString().split('T')[0]
+      });
+
+      const cat = month.categories.find(c => c.id === categoryId);
+      const metrics = calculateCategoryMetrics(cat, month.expenses);
+
+      saveState();
+      closeAllModals();
+      renderAll();
+
+      if (metrics.remainingBudget < 0) {
+        showToast(`تم التسجيل، لكنك تجاوزت ميزانية ${cat.name}!`, 'error');
+      } else {
+        showToast(`تم تسجيل ${formatEGP(amount)} • المعدل الجديد لباقي الأيام: ${formatEGP(metrics.adjustedDailyAllowance)}`, 'success');
+      }
+    }
+
+    function deleteExpense(expId) {
+      const month = appState.months[appState.activeMonthId];
+      month.expenses = month.expenses.filter(e => e.id !== expId);
+      saveState();
+      renderAll();
+      showToast('تم حذف العملية وإعادة رصيدها لليوم', 'info');
+    }
+
+    function setTxFilter(filter) {
+      selectedTxFilter = filter;
+      renderTransactionsTab();
+    }
+
+    // --- Extra Income Auto-Routing ---
+    function openExtraIncomeModal() {
+      document.getElementById('extra-amount').value = '';
+      document.getElementById('extra-source').value = '';
+      previewExtraRouting();
+      openModal('modal-extra-income');
+    }
+
+    function previewExtraRouting() {
+      const amount = Math.max(0, Number(document.getElementById('extra-amount').value) || 0);
+      const previewEl = document.getElementById('extra-routing-preview');
+      const totalUnpaidDebts = appState.debts.reduce((sum, d) => sum + Math.max(0, d.amount - d.paidAmount), 0);
+
+      if (amount <= 0) {
+        previewEl.innerHTML = totalUnpaidDebts > 0
+          ? `عليك مديونية حالية بقيمة <strong class="text-rose-600">${formatEGP(totalUnpaidDebts)}</strong> — أي فلوس إضافية هتتسدد منها أولاً.`
+          : `مفيش عليك ديون حالياً — المبلغ بالكامل هيتحول مباشرة لـ <strong class="text-emerald-700">خزنة التحويش 🔒</strong>.`;
+        return;
+      }
+
+      if (totalUnpaidDebts > 0) {
+        const toDebt = Math.min(amount, totalUnpaidDebts);
+        const toSavings = Math.max(0, amount - toDebt);
+        previewEl.innerHTML = `
+          <div class="space-y-1 font-bold">
+            <div class="text-rose-700">• سداد من المديونية تلقائياً: ${formatEGP(toDebt)}</div>
+            <div class="text-emerald-700">• تحويل الباقي لخزنة التحويش 🔒: ${formatEGP(toSavings)}</div>
+          </div>
+        `;
+      } else {
+        previewEl.innerHTML = `<div class="font-bold text-emerald-700">✅ سيتم تحويل ${formatEGP(amount)} بالكامل مباشرة إلى خزنة التحويش 🔒</div>`;
+      }
+    }
+
+    function processExtraIncome() {
+      const amount = Math.max(0, Number(document.getElementById('extra-amount').value) || 0);
+      const source = document.getElementById('extra-source').value.trim() || 'دخل إضافي';
+      if (amount <= 0) {
+        showToast('اكتب مبلغ الفلوس الإضافية أولاً', 'warning');
+        return;
+      }
+
+      let remainingExtra = amount;
+      let paidTowardDebt = 0;
+
+      for (const debt of appState.debts) {
+        if (remainingExtra <= 0) break;
+        const unpaid = Math.max(0, debt.amount - debt.paidAmount);
+        if (unpaid > 0) {
+          const pay = Math.min(remainingExtra, unpaid);
+          debt.paidAmount += pay;
+          paidTowardDebt += pay;
+          remainingExtra -= pay;
+        }
+      }
+
+      if (remainingExtra > 0) {
+        appState.vaults.savings += remainingExtra;
+        appState.vaults.history.push({
+          id: 'vh-' + Date.now(),
+          date: new Date().toISOString().split('T')[0],
+          vault: 'savings',
+          type: 'deposit',
+          amount: remainingExtra,
+          note: `تحويل تلقائي من: ${source}`
+        });
+      }
+
+      saveState();
+      closeAllModals();
+      renderAll();
+
+      if (paidTowardDebt > 0 && remainingExtra > 0) {
+        showToast(`تم سداد ${formatEGP(paidTowardDebt)} من المديونية وتحويل ${formatEGP(remainingExtra)} لخزنة التحويش!`, 'success');
+      } else if (paidTowardDebt > 0) {
+        showToast(`تم خصم ${formatEGP(paidTowardDebt)} بالكامل لسداد المديونية!`, 'success');
+      } else {
+        showToast(`تم تحويل ${formatEGP(remainingExtra)} مباشرة إلى خزنة التحويش 🔒`, 'success');
+      }
+    }
+
+    // --- Vault Deposit & Protected Withdrawal ---
+    function openVaultDepositModal(vaultType) {
+      document.getElementById('vault-deposit-type').value = vaultType;
+      document.getElementById('vault-deposit-title').textContent = vaultType === 'savings' ? 'إيداع في خزنة التحويش' : 'إيداع في خزنة الطوارئ';
+      document.getElementById('vault-deposit-amount').value = '';
+      document.getElementById('vault-deposit-note').value = '';
+      document.getElementById('vault-deduct-salary').checked = true;
+      openModal('modal-vault-deposit');
+    }
+
+    function confirmVaultDeposit() {
+      const vaultType = document.getElementById('vault-deposit-type').value;
+      const amount = Math.max(0, Number(document.getElementById('vault-deposit-amount').value) || 0);
+      const deductSalary = document.getElementById('vault-deduct-salary').checked;
+      const note = document.getElementById('vault-deposit-note').value.trim() || 'إيداع شهري';
+
+      if (amount <= 0) {
+        showToast('اكتب مبلغ صحيح للإيداع', 'warning');
+        return;
+      }
+
+      appState.vaults[vaultType] += amount;
+      appState.vaults.history.push({
+        id: 'vh-' + Date.now(),
+        date: new Date().toISOString().split('T')[0],
+        vault: vaultType,
+        type: 'deposit',
+        amount,
+        note
+      });
+
+      if (deductSalary) {
+        const month = appState.months[appState.activeMonthId];
+        month.vaultDeductions = (Number(month.vaultDeductions) || 0) + amount;
+      }
+
+      saveState();
+      closeAllModals();
+      renderAll();
+      showToast(`تم قفل ${formatEGP(amount)} في الخزنة بنجاح 🔒`, 'success');
+    }
+
+    function openVaultWithdrawModal(vaultType) {
+      document.getElementById('vault-withdraw-type').value = vaultType;
+      document.getElementById('vault-withdraw-amount').value = '';
+      document.getElementById('vault-withdraw-reason').value = '';
+      document.getElementById('vault-withdraw-phrase').value = '';
+      document.getElementById('vault-withdraw-pay-debt').checked = false;
+      openModal('modal-vault-withdraw');
+    }
+
+    function confirmVaultWithdraw() {
+      const vaultType = document.getElementById('vault-withdraw-type').value;
+      const amount = Math.max(0, Number(document.getElementById('vault-withdraw-amount').value) || 0);
+      const reason = document.getElementById('vault-withdraw-reason').value.trim();
+      const phrase = document.getElementById('vault-withdraw-phrase').value.trim();
+      const payDebt = document.getElementById('vault-withdraw-pay-debt').checked;
+
+      if (amount <= 0 || amount > appState.vaults[vaultType]) {
+        showToast('المبلغ غير صحيح أو أكبر من رصيد الخزنة', 'error');
+        return;
+      }
+      if (!reason) {
+        showToast('لازم تكتب سبب الضرورة القصوى أو سداد الدين', 'warning');
+        return;
+      }
+      if (phrase !== 'حالة طوارئ حقيقية') {
+        showToast('اكتب جملة التأكيد "حالة طوارئ حقيقية" بشكل صحيح لفتح القفل', 'error');
+        return;
+      }
+
+      appState.vaults[vaultType] -= amount;
+
+      let appliedToDebt = 0;
+      if (payDebt) {
+        let remToPay = amount;
+        for (const debt of appState.debts) {
+          if (remToPay <= 0) break;
+          const unpaid = Math.max(0, debt.amount - debt.paidAmount);
+          if (unpaid > 0) {
+            const pay = Math.min(remToPay, unpaid);
+            debt.paidAmount += pay;
+            appliedToDebt += pay;
+            remToPay -= pay;
+          }
+        }
+      }
+
+      appState.vaults.history.push({
+        id: 'vh-' + Date.now(),
+        date: new Date().toISOString().split('T')[0],
+        vault: vaultType,
+        type: 'withdraw',
+        amount,
+        note: appliedToDebt > 0 ? `سحب (${formatEGP(appliedToDebt)} للدين): ${reason}` : `سحب طارئ: ${reason}`
+      });
+
+      saveState();
+      closeAllModals();
+      renderAll();
+      if (appliedToDebt > 0) {
+        showToast(`تم سحب ${formatEGP(amount)} وتوجيه ${formatEGP(appliedToDebt)} لسداد المديونية`, 'success');
+      } else {
+        showToast(`تم السحب للضرورة القصوى: ${formatEGP(amount)}`, 'warning');
+      }
+    }
+
+    // --- Debts Management ---
+    function openAddDebtModal() {
+      document.getElementById('debt-title').value = '';
+      document.getElementById('debt-amount').value = '';
+      document.getElementById('debt-deduct-now').checked = true;
+      openModal('modal-add-debt');
+    }
+
+    function saveNewDebt() {
+      const title = document.getElementById('debt-title').value.trim();
+      const amount = Math.max(0, Number(document.getElementById('debt-amount').value) || 0);
+      const deductFromSalary = document.getElementById('debt-deduct-now').checked;
+
+      if (!title || amount <= 0) {
+        showToast('اكتب عنوان المديونية ومبلغ صحيح', 'warning');
+        return;
+      }
+
+      appState.debts.push({
+        id: 'debt-' + Date.now(),
+        title,
+        amount,
+        paidAmount: 0,
+        deductFromSalary,
+        monthId: appState.activeMonthId,
+        isAutoCarryover: false
+      });
+
+      saveState();
+      closeAllModals();
+      renderAll();
+      showToast('تم تسجيل المديونية بنجاح', 'success');
+    }
+
+    function deleteDebt(debtId) {
+      appState.debts = appState.debts.filter(d => d.id !== debtId);
+      saveState();
+      renderAll();
+      showToast('تم حذف المديونية', 'info');
+    }
+
+    // --- Multi-Month Rollover ---
+    function openNewMonthModal() {
+      const currentId = appState.activeMonthId;
+      const [yStr, mStr] = currentId.split('-');
+      let nextM = Number(mStr) + 1;
+      let nextY = Number(yStr);
+      if (nextM > 12) {
+        nextM = 1;
+        nextY += 1;
+      }
+      document.getElementById('new-month-num').value = String(nextM).padStart(2, '0');
+      document.getElementById('new-month-year').value = String(nextY);
+      openModal('modal-new-month');
+    }
+
+    function createNewMonth() {
+      const mNum = document.getElementById('new-month-num').value;
+      const yNum = document.getElementById('new-month-year').value;
+      const copyCats = document.getElementById('new-month-copy-cats').checked;
+      const newId = `${yNum}-${mNum}`;
+
+      if (appState.months[newId]) {
+        showToast('الشهر ده موجود بالفعل!', 'warning');
+        selectMonth(newId);
+        closeAllModals();
+        return;
+      }
+
+      const currentMonth = appState.months[appState.activeMonthId];
+      const currentSummary = calculateMonthSummary(appState.activeMonthId);
+
+      // If previous month ended with a deficit, automatically create a carried-over debt for the new month
+      if (currentSummary && currentSummary.closingBalance < 0) {
+        const deficit = Math.abs(currentSummary.closingBalance);
+        appState.debts.push({
+          id: 'debt-carry-' + Date.now(),
+          title: `مديونية مرحلة من ${currentMonth.label}`,
+          amount: deficit,
+          paidAmount: 0,
+          deductFromSalary: false,
+          monthId: newId,
+          isAutoCarryover: true
+        });
+      }
+
+      const newCategories = copyCats
+        ? currentMonth.categories.map(c => ({ ...c, id: 'cat-' + Date.now() + '-' + Math.floor(Math.random() * 1000) }))
+        : [];
+
+      appState.months[newId] = {
+        id: newId,
+        label: `${ARABIC_MONTHS[mNum]} ${yNum}`,
+        salary: currentMonth.salary || 0,
+        vaultDeductions: 0,
+        categories: newCategories,
+        expenses: []
+      };
+
+      appState.activeMonthId = newId;
+      saveState();
+      closeAllModals();
+      renderAll();
+
+      if (currentSummary && currentSummary.closingBalance < 0) {
+        showToast(`تم فتح ${ARABIC_MONTHS[mNum]} وترحيل عجز ${formatEGP(Math.abs(currentSummary.closingBalance))} كمديونية`, 'warning');
+      } else if (currentSummary && currentSummary.closingBalance > 0) {
+        showToast(`تم فتح ${ARABIC_MONTHS[mNum]} وترحيل فائض +${formatEGP(currentSummary.closingBalance)}!`, 'success');
+      } else {
+        showToast(`تم فتح شهر ${ARABIC_MONTHS[mNum]} بنجاح`, 'success');
+      }
+    }
+
+    // --- Backup, Restore & Reset ---
+    function openBackupModal() {
+      document.getElementById('restore-json-input').value = '';
+      openModal('modal-backup');
+    }
+
+    function copyBackupData() {
+      const jsonStr = JSON.stringify(appState);
+      const tempArea = document.createElement('textarea');
+      tempArea.value = jsonStr;
+      document.body.appendChild(tempArea);
+      tempArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempArea);
+      showToast('تم نسخ كود النسخة الاحتياطية للحافظة!', 'success');
+    }
+
+    function downloadBackupFile() {
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(appState, null, 2));
+      const dlAnchor = document.createElement('a');
+      dlAnchor.setAttribute('href', dataStr);
+      dlAnchor.setAttribute('download', `smart-budget-backup-${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(dlAnchor);
+      dlAnchor.click();
+      dlAnchor.remove();
+      showToast('تم تحميل ملف النسخة الاحتياطية', 'success');
+    }
+
+    function restoreBackupData() {
+      try {
+        const raw = document.getElementById('restore-json-input').value.trim();
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.months || !parsed.activeMonthId) {
+          throw new Error('Invalid format');
+        }
+        appState = parsed;
+        saveState();
+        closeAllModals();
+        renderAll();
+        showToast('تمت استعادة بياناتك بنجاح!', 'success');
+      } catch (e) {
+        showToast('الكود غير صحيح، تأكد من لصق النسخة الاحتياطية كاملة', 'error');
+      }
+    }
+
+    function openResetConfirm() {
+      openModal('modal-reset');
+    }
+
+    function executeFreshStart() {
+      const now = new Date();
+      const y = String(now.getFullYear());
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const id = `${y}-${m}`;
+      appState = {
+        activeMonthId: id,
+        privacyHidden: false,
+        vaults: {
+          savings: 0,
+          emergency: 0,
+          history: []
+        },
+        debts: [],
+        months: {
+          [id]: {
+            id,
+            label: `${ARABIC_MONTHS[m]} ${y}`,
+            salary: 0,
+            vaultDeductions: 0,
+            categories: [],
+            expenses: []
+          }
+        }
+      };
+      saveState();
+      closeAllModals();
+      renderAll();
+      showToast('تم تصفير البيانات! ابدأ الآن بإدخال مرتبك وفئاتك', 'success');
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      renderAll();
+    });
+  </script>
+</body>
+</html>
